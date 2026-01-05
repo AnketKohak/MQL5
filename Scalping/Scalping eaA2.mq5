@@ -42,7 +42,7 @@ int handleRSI, handleMovAvg;
 input color ChartColorTradingOff = clrPink;
 input color ChartColorTradingOn = clrBlack;
 bool Tradingenabled = true;
-input bool HideIndicators = true;
+input bool HideIndicators = false;
 string TradingEnabledComm = "";
 
 
@@ -83,6 +83,25 @@ input int StopsBeforeMin = 15;
 input int StartTradingMin = 15;
 bool TrDisableNews = false;
 
+
+input group "===RSI Filter ==="
+
+input bool RSIfilterOn = true;
+input ENUM_TIMEFRAMES RSITimeframe = PERIOD_H1;
+input double RSILowerLvl  = 20;
+input int RSIUpperlvl  = 80;
+input int RSI_MA = 14;
+input ENUM_APPLIED_PRICE RSI_AppPrice = PRICE_MEDIAN;
+
+input group "===Moving Average Filter ==="
+
+input bool MAFilterOn = true;
+input ENUM_TIMEFRAMES MATimeframe = PERIOD_H4;
+input double PctPricefromMA = 3;
+input int MA_Period = 200;
+input ENUM_MA_METHOD MA_Mode = MODE_EMA;
+input ENUM_APPLIED_PRICE MA_AppPrice = PRICE_MEDIAN;
+
 ushort sep_code;
 string Newstoavoid[];
 datetime LastNewsAvoided;
@@ -112,25 +131,50 @@ int OnInit()
    Slpoints = SlpointsInput;
    TslTriggerPoints = TslTriggerPointsInput;
    TslPoints = TslPointsInput; //
+
+   if(HideIndicators == true)
+      TesterHideIndicators(true);
+   handleRSI = iRSI(_Symbol, RSITimeframe, RSI_MA, RSI_AppPrice);
+   handleMovAvg = iMA(_Symbol, MATimeframe, MA_Period, 0, MA_Mode, MA_AppPrice);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-//---
    return(INIT_SUCCEEDED);
   }
+
 //+------------------------------------------------------------------+
-//| Expert deinitialization function                                 |
+//|                                                                  |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
-//---
+
   }
 //+------------------------------------------------------------------+
-//| Expert tick function                                             |
+//|                                                                  |
 //+------------------------------------------------------------------+
 void OnTick()
   {
-//---
    TrailStop();
 
+   if(IsRSIFilter() || IsMAFilter())
+     {
+      CloseAllOrders();
+      Tradingenabled = false;
+      ChartSetInteger(0, CHART_COLOR_BACKGROUND, ChartColorTradingOff);
+      if(TradingEnabledComm != "Printed")
+        {
+         Print(TradingEnabledComm);
+        }
+      TradingEnabledComm = "Printed";
+      return;
+     }
+
+   Tradingenabled = true;
+   if(TradingEnabledComm != "")
+     {
+      Print("Trading is again enabled");
+      TradingEnabledComm = "";
+     }
+     
+      ChartSetInteger(0, CHART_COLOR_BACKGROUND, ChartColorTradingOn);
    if(!IsNewbar())
      {
       return ;
@@ -149,7 +193,6 @@ void OnTick()
       CloseAllOrders();
       return;
      }
-
    if(SysChoice == 1)
      {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -207,7 +250,6 @@ void OnTick()
          SellTotal++;
         }
      }
-
    if(BuyTotal <= 0)
      {
       double  high = findHigh();
@@ -492,4 +534,59 @@ bool ISUpcomingNews()
 
    return false;
   }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsRSIFilter()
+  {
+   if(RSIfilterOn == false)
+      return(false);
+
+   double RSI[];
+
+   CopyBuffer(handleRSI, MAIN_LINE, 0, 1, RSI);
+   ArraySetAsSeries(RSI, true);
+
+   double RSInow = RSI[0];
+   Comment("RSI = ", RSInow);
+
+   if(RSInow > RSIUpperlvl || RSInow < RSILowerLvl)
+     {
+      if(TradingEnabledComm == ""  || TradingEnabledComm != "Printed")
+        {
+         TradingEnabledComm = "Trading is disabled due to RSI Filter";
+        }
+      return(true);
+     }
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsMAFilter()
+  {
+   if(MAFilterOn == false)
+      return(false);
+
+   double MovAvg[];
+
+   CopyBuffer(handleMovAvg, MAIN_LINE, 0, 1, MovAvg);
+   ArraySetAsSeries(MovAvg, true);
+
+   double MAnow = MovAvg[0];
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+   if(ask > MAnow * (1 + PctPricefromMA / 100) || ask < MAnow * (1 - PctPricefromMA / 100))
+     {
+      if(TradingEnabledComm == ""  || TradingEnabledComm != "Printed")
+        {
+         TradingEnabledComm = "Trading is disabled due to Mov Avg Filter";
+        }
+      return true;
+     }
+   return false;
+  }
+
 //+------------------------------------------------------------------+
