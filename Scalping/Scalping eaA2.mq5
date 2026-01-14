@@ -89,7 +89,7 @@ input group "===RSI Filter ==="
 input bool RSIfilterOn = true;
 input ENUM_TIMEFRAMES RSITimeframe = PERIOD_H1;
 input double RSILowerLvl  = 20;
-input int RSIUpperlvl  = 80;
+input double RSIUpperlvl  = 80;
 input int RSI_MA = 14;
 input ENUM_APPLIED_PRICE RSI_AppPrice = PRICE_MEDIAN;
 

@@ -3,7 +3,9 @@
 //|                                  Copyright 2025, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
-//This ea very fast and tight stoploss trailing it only work due to high win rate 
+// this ea very thight stoploss
+// this we added new filter
+// video link : https://youtu.be/9zoeRuDK5ec?si=AGtPN7FvdeBIvPHB
 #property copyright "Copyright 2025, MetaQuotes Ltd."
 #property link      "https://www.mql5.com"
 #property version   "1.00"
@@ -13,35 +15,65 @@
 CTrade trade;
 CPositionInfo pos;
 COrderInfo ord;
+
+
+
+input group "=== Common Trading Inputs ==="
 input double RiskPercent = 2;
 input ENUM_TIMEFRAMES Timeframe = PERIOD_CURRENT;
+input int BarsN = 50;
 
-input int Tppoints = 200;
-input int Slpoints = 200;
-input int TslPoints = 10;
-input int TslTrigferPoints = 15;
-
-input int BarsN = 5;
-input int OrderDistPoints = 100;
 input int ExpirationBars = 100;
-
 enum TradeHour {Inactive = 0, _0100 = 1, _0200 = 2, _0300 = 3, _0400 = 4, _0500 = 5, _0600 = 6, _0700 = 7, _0800 = 8, _0900 = 9, _1000 = 10, _1100 = 11, _1200 = 12, _1300 = 13, _1400 = 14, _1500 = 15, _1600 = 16, _1700 = 17, _1800 = 18, _1900 = 19, _2000 = 20, _2100 = 21, _2200 = 22, _2300 = 23};
-
-input TradeHour SHInput = 0;
-
-//enum EndHour {Inactive = 0, _0100 = 1, _0200 = 2, _0300 = 3, _0400 = 4, _0500 = 5, _0600 = 6, _0700 = 7, _0800 = 8, _0900 = 9, _1000 = 10, _1100 = 11, _1200 = 12, _1300 = 13, _1400 = 14, _1500 = 15, _1600 = 16, _1700 = 17, _1800 = 18, _1900 = 19, _2000 = 20, _2100 = 21, _2200 = 22, _2300 = 23};
-input TradeHour EHInput = 0;
-
+input TradeHour SHInput = 7; //007
+input TradeHour EHInput = 21;  //021
 int SHChoice;
 int EHChoice;
-
 input int InpMagic = 1001;
 input string TradeComment = "No Shenanigans";
+double OrderDistPoints = 100;
+double Tppoints, Slpoints, TslTriggerPoints, TslPoints;
 
 
+int handleRSI;
+input color ChartColorTradingOff = clrPink;
+input color ChartColorTradingOn = clrBlack;
+bool Tradingenabled = true;
+input bool HideIndicators = false;
+string TradingEnabledComm = "";
 
 
+input group "===Gold Related Input ==="
+input double TPasPctGold = 0.2;
+input double SLasPctGold = 0.2;
+input double TSLasPctofTPGold = 5;
+input double TSLTgrasPctofTPGold = 7;
 
+
+input group "===News Filter ==="
+input bool NewsFilterOn = true;
+enum sep_dropdown {commo = 0, semicolon = 1};
+input sep_dropdown separater = 0;
+input string KeyNews = "BCB,NFP,JOLTX,Nonfarm,PMI,Retail,GDP,Confidence,Interest Rate";
+input string NewsCurrencies = "USD,GBP,EUR,JPY";
+input int DaysNewsLookup = 100;
+input int StopsBeforeMin = 15;
+input int StartTradingMin = 15;
+bool TrDisableNews = false;
+
+
+input group "===RSI Filter ==="
+
+input bool RSIfilterOn = true;
+input ENUM_TIMEFRAMES RSITimeframe = PERIOD_H1;
+input double RSILowerLvl  = 20;
+input double RSIUpperlvl  = 80;
+input int RSI_MA = 14;
+input ENUM_APPLIED_PRICE RSI_AppPrice = PRICE_MEDIAN;
+
+ushort sep_code;
+string Newstoavoid[];
+datetime LastNewsAvoided;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -55,25 +87,51 @@ int OnInit()
    SHChoice = SHInput;
    EHChoice = EHInput;
 
+ 
+
+  
+   if(HideIndicators == true)
+      TesterHideIndicators(true);
+   handleRSI = iRSI(_Symbol, RSITimeframe, RSI_MA, RSI_AppPrice);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-//---
    return(INIT_SUCCEEDED);
   }
+
 //+------------------------------------------------------------------+
-//| Expert deinitialization function                                 |
+//|                                                                  |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
-//---
+
   }
 //+------------------------------------------------------------------+
-//| Expert tick function                                             |
+//|                                                                  |
 //+------------------------------------------------------------------+
 void OnTick()
   {
-//---
    TrailStop();
 
+   if(IsRSIFilter())
+     {
+      CloseAllOrders();
+      Tradingenabled = false;
+      ChartSetInteger(0, CHART_COLOR_BACKGROUND, ChartColorTradingOff);
+      if(TradingEnabledComm != "Printed")
+        {
+         Print(TradingEnabledComm);
+        }
+      TradingEnabledComm = "Printed";
+      return;
+     }
+
+   Tradingenabled = true;
+   if(TradingEnabledComm != "")
+     {
+      Print("Trading is again enabled");
+      TradingEnabledComm = "";
+     }
+     
+      ChartSetInteger(0, CHART_COLOR_BACKGROUND, ChartColorTradingOn);
    if(!IsNewbar())
      {
       return ;
@@ -92,6 +150,14 @@ void OnTick()
       CloseAllOrders();
       return;
      }
+   
+          double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      Tppoints = ask * TPasPctGold;
+      Slpoints = ask * SLasPctGold;
+      OrderDistPoints = Tppoints / 2;
+      TslPoints =  Tppoints * TSLasPctofTPGold / 100;
+      TslTriggerPoints = Tppoints * TSLTgrasPctofTPGold / 100;
+     
 
    int BuyTotal = 0;
    int SellTotal = 0;
@@ -122,7 +188,6 @@ void OnTick()
          SellTotal++;
         }
      }
-
    if(BuyTotal <= 0)
      {
       double  high = findHigh();
@@ -241,7 +306,7 @@ void executeBuy(double entry)
       lots = calcLots(entry - sl);
 
    datetime expiration = iTime(_Symbol, Timeframe, 0) + ExpirationBars * PeriodSeconds(Timeframe);
-   trade.BuyStop(lots, entry, _Symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration);
+   trade.BuyStop(0.01, entry, _Symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration);
   }
 
 //+------------------------------------------------------------------+
@@ -264,7 +329,7 @@ void executeSell(double entry)
       lots = calcLots(sl - entry);
 
    datetime expiration = iTime(_Symbol, Timeframe, 0) + ExpirationBars * PeriodSeconds(Timeframe);
-   trade.SellStop(lots, entry, _Symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration);
+   trade.SellStop(0.01, entry, _Symbol, sl, tp, ORDER_TIME_SPECIFIED, expiration);
   }
 
 
@@ -305,10 +370,13 @@ void TrailStop()
            {
             if(pos.PositionType() == POSITION_TYPE_BUY)
               {
-               if(bid - pos.PriceOpen() > TslTrigferPoints * _Point)
+               if(bid - pos.PriceOpen() > TslTriggerPoints * _Point)
                  {
                   tp = pos.TakeProfit();
                   sl = bid - (TslPoints * _Point);
+                  Print("TslPoints : ", TslPoints);
+                  Print("TslPoints *Points : ", TslPoints * _Point);
+                  Print("Points : ", _Point);
                   if(sl > pos.StopLoss() && sl != 0)
                     {
                      trade.PositionModify(ticket, sl, tp);
@@ -318,10 +386,13 @@ void TrailStop()
             else
                if(pos.PositionType() == POSITION_TYPE_SELL)
                  {
-                  if(pos.PriceOpen() - ask > TslTriggerPoints * _Point)
+                  if(ask + (TslTriggerPoints * _Point) < pos.PriceOpen())
                     {
                      tp = pos.TakeProfit();
                      sl = ask + (TslPoints * _Point);
+                     Print("TslPoints : ", TslPoints);
+                     Print("TslPoints *Points : ", TslPoints * _Point);
+                     Print("Points : ", _Point);
                      if(sl < pos.StopLoss() && sl != 0)
                        {
                         trade.PositionModify(ticket, sl, tp);
@@ -330,10 +401,105 @@ void TrailStop()
                  }
            }
         }
-
-
-
      }
 
   }
+
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool ISUpcomingNews()
+  {
+   if(NewsFilterOn == false)
+      return(false);
+   if(TrDisableNews && TimeCurrent() - LastNewsAvoided < StartTradingMin * PeriodSeconds(PERIOD_M1))
+      return true;
+
+   TrDisableNews = false;
+
+   string sep;
+   switch(separater)
+     {
+      case 0:
+         sep = ",";
+         break;
+      case 1:
+         sep = ";";
+     }
+   sep_code = StringGetCharacter(sep, 0);
+   int k = StringSplit(KeyNews, sep_code, Newstoavoid);
+
+   MqlCalendarValue values[];
+   datetime starttime = TimeCurrent();
+   datetime endtime = starttime + PeriodSeconds(PERIOD_D1) * DaysNewsLookup;
+
+   CalendarValueHistory(values, starttime, endtime, NULL, NULL);
+
+   for(int i = 0; i < ArraySize(values); i++)
+     {
+      MqlCalendarEvent event;
+      CalendarEventById(values[i].event_id, event);
+      MqlCalendarCountry country;
+      CalendarCountryById(event.country_id, country);
+
+      if(StringFind(NewsCurrencies, country.currency) < 0)
+         continue;
+
+      for(int j = 0; j < k; j++)
+        {
+         string currnetevent = Newstoavoid[j];
+         string currnetnews = event.name;
+
+         if(StringFind(currnetnews, currnetevent) < 0)
+            continue;
+
+         Comment("Next News: ", country.currency, " : ", event.name, "->", values[i].time);
+         if(values[i].time - TimeCurrent() < StopsBeforeMin * PeriodSeconds(PERIOD_M1))
+           {
+            LastNewsAvoided = values[i].time;
+            TrDisableNews = true;
+            if(TradingEnabledComm == "" || TradingEnabledComm != "Printed")
+              {
+               TradingEnabledComm = "Trading is disabled due to upcoming news : " + event.name;
+              }
+            return true;
+           }
+         return false;
+        }
+
+     }
+
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsRSIFilter()
+  {
+   if(RSIfilterOn == false)
+      return(false);
+
+   double RSI[];
+
+   CopyBuffer(handleRSI, MAIN_LINE, 0, 1, RSI);
+   ArraySetAsSeries(RSI, true);
+
+   double RSInow = RSI[0];
+   Comment("RSI = ", RSInow);
+
+   if(RSInow > RSIUpperlvl || RSInow < RSILowerLvl)
+     {
+      if(TradingEnabledComm == ""  || TradingEnabledComm != "Printed")
+        {
+         TradingEnabledComm = "Trading is disabled due to RSI Filter";
+        }
+      return(true);
+     }
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
 //+------------------------------------------------------------------+
