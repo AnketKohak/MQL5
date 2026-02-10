@@ -18,13 +18,13 @@ CiMA MovAvgFast, MovAvgSlow;
 
 
 enum LST {Fixed = 0, RiskPct = 1};
-enum Hours {_1 = 1,_2=2,_3=3,_4=4,_5=5,_6=6,_7=7,_8=8,_9=9,_10=10,_11=11,_12=12,_13=13,_14=14,_15=15,_16=16,_17=17,_18=18,_19=19,_20=20,_21=21,_22=22,_23=23,_24=24};
-enum Minutes {_0=00,_25=25,_30=30,_35=35,_40=40,_45=45,_50=50,_55=55};
-enum TrsSides {Onesided =0, Bothsided=1};
+enum Hours {_1 = 1, _2 = 2, _3 = 3, _4 = 4, _5 = 5, _6 = 6, _7 = 7, _8 = 8, _9 = 9, _10 = 10, _11 = 11, _12 = 12, _13 = 13, _14 = 14, _15 = 15, _16 = 16, _17 = 17, _18 = 18, _19 = 19, _20 = 20, _21 = 21, _22 = 22, _23 = 23, _24 = 24};
+enum Minutes {_0 = 00, _25 = 25, _30 = 30, _35 = 35, _40 = 40, _45 = 45, _50 = 50, _55 = 55};
+enum TrsSides {Onesided = 0, Bothsided = 1};
 enum SLType {Yes = 0, No = 1};
-enum TrType {RangePct = 0, HighLow = 1,Fixedpips =2};
+enum TrType {RangePct = 0, HighLow = 1, Fixedpips = 2};
 enum TrStyle {With_Break = 0, Opposite_to_Break = 1};
-enum IcTypes {Price_above_Cloud=0,Price_above_Ten = 1,Price_above_Kij = 2,Price_above_SenA =3,Price_above_SenB=4,Ten_above_Kij = 5,Ten_above_Kij_above_Cloud = 6,Ten_above_Cloud = 7,Kij_above_Cloud = 8 };
+enum IcTypes {Price_above_Cloud = 0, Price_above_Ten = 1, Price_above_Kij = 2, Price_above_SenA = 3, Price_above_SenB = 4, Ten_above_Kij = 5, Ten_above_Kij_above_Cloud = 6, Ten_above_Cloud = 7, Kij_above_Cloud = 8 };
 
 
 input group "=== Ea specfic variables ===";
@@ -64,15 +64,15 @@ input int TrailRangePct = 80;
 input int BarsN = 5;
 input int HighLowBuffer = 2;
 
-MqlDateTime starttime,endtime,closetime;
-datetime timestart,timeend,timeclose;
-int BarsRangeStart,BarstoCount,BuyTotal,SellTotal;
-double RangeHigh,RangeLow,RangeSize,Tsl;
+MqlDateTime starttime, endtime, closetime;
+datetime timestart, timeend, timeclose;
+int BarsRangeStart, BarstoCount, BuyTotal, SellTotal;
+double RangeHigh, RangeLow, RangeSize, Tsl;
 
 
 input group "===News Filter ==="
 input bool NewsFilterOn = true;
-enum sep_dropdown {commo = 0,semicolon = 1};
+enum sep_dropdown {commo = 0, semicolon = 1};
 input sep_dropdown separater = 0;
 input string KeyNews = "BCB,NFP,JOLTX,Nonfarm,PMI,Retail,GDP,Confidence,Interest Rate";
 input string NewsCurrencies = "USD,GBP,EUR,JPY";
@@ -118,20 +118,18 @@ int OnInit()
 //---
    trade.SetExpertMagicNumber(InpMagic);
    ChartSetInteger(0, CHART_SHOW_GRID, false);
-
    if(IchiFilterOn == true)
      {
       IchiMoku = new CiIchimoku;
-      IchiMoku.Create(_Symbol,IchiMokuTimeframe,tenkan,kijun,senkon_b);
+      IchiMoku.Create(_Symbol, IchiMokuTimeframe, tenkan, kijun, senkon_b);
      }
    if(MAFilterOn == true)
      {
       MovAvgSlow = new CiMA;
-      MovAvgSlow.Create(_Symbol,MATimeframe,Slow_MA_Period,0,MA_Mode,MA_AppPrice);
+      MovAvgSlow.Create(_Symbol, MATimeframe, Slow_MA_Period, 0, MA_Mode, MA_AppPrice);
       MovAvgFast = new CiMA;
-      MovAvgFast.Create(_Symbol,MATimeframe,Fast_MA_Period,0,MA_Mode,MA_AppPrice);
+      MovAvgFast.Create(_Symbol, MATimeframe, Fast_MA_Period, 0, MA_Mode, MA_AppPrice);
      }
-
 //---
    return(INIT_SUCCEEDED);
   }
@@ -141,7 +139,6 @@ int OnInit()
 void OnDeinit(const int reason)
   {
 //---
-
   }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -149,7 +146,6 @@ void OnDeinit(const int reason)
 void OnTick()
   {
 //---
-
   }
 
 //+------------------------------------------------------------------+
@@ -157,27 +153,22 @@ void OnTick()
 //+------------------------------------------------------------------+
 void convertTimes()
   {
-   TimeToStruct(TimeCurrent(),starttime);
+   TimeToStruct(TimeCurrent(), starttime);
    starttime.hour = RangeStartHour;
    starttime.min = RangeStartMin;
    timestart = StructToTime(starttime);
-
-   TimeToStruct(TimeCurrent(),endtime);
+   TimeToStruct(TimeCurrent(), endtime);
    endtime.hour = RangeEndHour;
    endtime.min = RangeEndMin;
    timeend = StructToTime(endtime);
-
-   TimeToStruct(TimeCurrent(),closetime);
+   TimeToStruct(TimeCurrent(), closetime);
    closetime.hour = TradeCloseHour;
    closetime.min = TradeCloseMin;
    timeclose = StructToTime(closetime);
-
-   if(BarsRangeStart == 0 && TimeCurrent()>= timestart)
+   if(BarsRangeStart == 0 && TimeCurrent() >= timestart)
      {
-      BarsRangeStart = iBars(_Symbol,InpTimeframe);
+      BarsRangeStart = iBars(_Symbol, InpTimeframe);
      }
-
-
   }
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -186,31 +177,157 @@ double GetHigh()
   {
    double high = 0;
    int highestbar = 0;
-   int BarsNow = iBars(_Symbol,InpTimeframe);
-   if(TimeCurrent() > timestart && TimeCurrent()<timeend)
+   int BarsNow = iBars(_Symbol, InpTimeframe);
+   if(TimeCurrent() > timestart && TimeCurrent() < timeend)
      {
-      BarstoCount = iBars(_Symbol,InpTimeframe) - BarsRangeStart +1;
-      highestbar = iHighest(_Symbol,InpTimeframe,MODE_HIGH,BarstoCount,0);
-      high = iHigh(_Symbol,InpTimeframe,highestbar);
-      if(high!=RangeHigh)
+      BarstoCount = iBars(_Symbol, InpTimeframe) - BarsRangeStart + 1;
+      highestbar = iHighest(_Symbol, InpTimeframe, MODE_HIGH, BarstoCount, 0);
+      high = iHigh(_Symbol, InpTimeframe, highestbar);
+      if(high != RangeHigh)
          return high;
      }
    return RangeHigh;
   }
-  double GetLow()
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+double GetLow()
   {
    double low = 0;
    int lowestbar = 0;
-
-   if(TimeCurrent() > timestart && TimeCurrent()<timeend)
+   if(TimeCurrent() > timestart && TimeCurrent() < timeend)
      {
-      BarstoCount = iBars(_Symbol,InpTimeframe) - BarsRangeStart +1;
-      lowestbar = iLowest(_Symbol,InpTimeframe,MODE_LOW,BarstoCount,0);
-      low = iLow(_Symbol,InpTimeframe,lowestbar);
-      if(low!=RangeLow)
+      BarstoCount = iBars(_Symbol, InpTimeframe) - BarsRangeStart + 1;
+      lowestbar = iLowest(_Symbol, InpTimeframe, MODE_LOW, BarstoCount, 0);
+      low = iLow(_Symbol, InpTimeframe, lowestbar);
+      if(low != RangeLow)
          return low;
      }
    return RangeLow;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void ShowRange(double high, double low)
+  {
+   ObjectCreate(0, "range", OBJ_RECTANGLE, 0, timestart, high, timeend, low);
+   if(RangeSize < MaxRangeSize * 10 * _Point && RangeSize > MinRangeSize * 10 * _Point)
+     {
+      ObjectSetInteger(0, "range", OBJPROP_COLOR, rangeColor);
+      ObjectSetInteger(0, "range", OBJPROP_FILL, rangeColor);
+     }
+   else
+     {
+      ObjectSetInteger(0, "range", OBJPROP_COLOR, rangeColordisabled);
+      ObjectSetInteger(0, "range", OBJPROP_FILL, rangeColordisabled);
+     }
+   ObjectCreate(0, "tradingtime", OBJ_RECTANGLE, 0, timeend, high, timeclose, low);
+   ObjectSetInteger(0, "tradingtime", OBJPROP_COLOR, rangeColor);
+   ObjectCreate(0, "endtime", OBJ_VLINE, 0, timeclose, 0);
+   ObjectSetInteger(0, "endtime", OBJPROP_COLOR, rangeColor);
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsInside()
+  {
+   MqlDateTime start, now;
+   int startmin, nowmin;
+   TimeToStruct(TimeCurrent(), now);
+   nowmin = now.hour * 60 + now.min;
+   TimeToStruct(timestart, start);
+   startmin = start.hour * 60 + start.min;
+   if(nowmin >= startmin)
+      return true;
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void OpenTrade(ENUM_ORDER_TYPE type, double price, double sl)
+  {
+   double tp = price + (price - sl) * TPPercent / SLPercent;
+   double lots = 0.01;
+   switch(LotSizeType)
+     {
+      case 0:
+         lots = FixedLotSize;
+         break;
+      case 1:
+         lots = calcLots(price - sl);
+     }
+   if(!trade.OrderOpen(_Symbol, type, lots, 0, price, sl, tp, 0, 0, TradeComment))
+     {
+      printf("Open Failed for %s, %s, price = %f, tp =%f", _Symbol, EnumToString(type), price, sl, tp);
+     }
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void CloseandRestAll()
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+        {
+         trade.PositionClose(ticket);
+        }
+     }
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = OrderGetTicket(i);
+      if(ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+        {
+         trade.OrderDelete(ticket);
+        }
+      BarsRangeStart = 0;
+      BuyTotal = 0;
+      SellTotal = 0;
+     }
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void Prepareorder()
+  {
+   if(TimeCurrent() > timeend && TimeCurrent() < timeclose)
+     {
+      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      if(RangeSize > MinRangeSize * 10 * _Point && RangeSize < MaxRangeSize * 10 * _Point)
+        {
+         if(ask < RangeHigh - (RangeSize * OrdDistpct / 100) && ask > RangeLow + (RangeSize * OrdDistpct / 100));
+        {
+         if(TradingStyle == 0)
+              {
+               if(BuyTotal <= 0 && MA_BuyOn == true && Ichi_BuyOn == true)
+                 {
+                  OpenTrade(ORDER_TYPE_BUY_STOP, RangeHigh, RangeHigh - (RangeSize * SLPercent / 100));
+                 }
+               if(SellTotal <= 0 && MA_SellOn == true && Ichi_SellOn == true)
+                 {
+                  OpenTrade(ORDER_TYPE_SELL_STOP, RangeLow, RangeLow + (RangeSize * SLPercent / 100));
+                 }
+              }
+            if(TradingStyle == 1)
+              {
+               if(BuyTotal <= 0 && MA_BuyOn == true && Ichi_BuyOn == true)
+                 {
+                  OpenTrade(ORDER_TYPE_BUY_LIMIT, RangeLow, RangeLow - (RangeSize * SLPercent / 100));
+                 }
+               if(SellTotal <= 0 && MA_SellOn == true && Ichi_SellOn == true)
+                 {
+                  OpenTrade(ORDER_TYPE_SELL_LIMIT, RangeHigh, RangeHigh + (RangeSize * SLPercent / 100));
+                 }
+              }
+           }
+        }
+     }
   }
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -226,7 +343,6 @@ double calcLots(double slPoints)
    double minVolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
    double maxvolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX);
    double volumelimit = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_LIMIT);
-//
    if(volumelimit != 0)
       lots = MathMin(lots, volumelimit);
    if(maxvolume != 0)
@@ -240,7 +356,6 @@ double calcLots(double slPoints)
    lots = NormalizeDouble(lots, 2);
    return lots;
   }
-
 //+------------------------------------------------------------------+
 bool IsNewbar()
   {
@@ -253,34 +368,29 @@ bool IsNewbar()
      }
    return false;
   }
-
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
 void CheckForOpenOrdersandPositions()
   {
-
-   for(int i = OrdersTotal()-1;i>=0;i--)
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
      {
       ordinfo.SelectByIndex(i);
-      if(ordinfo.OrderType()==ORDER_TYPE_BUY_STOP && ordinfo.Symbol()==_Symbol && ordinfo.Magic()==InpMagic)
+      if(ordinfo.OrderType() == ORDER_TYPE_BUY_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
          BuyTotal++;
-
-      if(ordinfo.OrderType()==ORDER_TYPE_SELL_STOP && ordinfo.Symbol()==_Symbol && ordinfo.Magic()==InpMagic)
+      if(ordinfo.OrderType() == ORDER_TYPE_SELL_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
          SellTotal++;
-      if(ordinfo.OrderType()==ORDER_TYPE_BUY_LIMIT && ordinfo.Symbol()==_Symbol && ordinfo.Magic()==InpMagic)
+      if(ordinfo.OrderType() == ORDER_TYPE_BUY_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
          BuyTotal++;
-
-      if(ordinfo.OrderType()==ORDER_TYPE_SELL_LIMIT && ordinfo.Symbol()==_Symbol && ordinfo.Magic()==InpMagic)
+      if(ordinfo.OrderType() == ORDER_TYPE_SELL_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
          SellTotal++;
      }
-
-   for(int i = PositionsTotal()-1;i>=0;i--)
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       posinfo.SelectByIndex(i);
-      if(posinfo.PositionType() == POSITION_TYPE_BUY && posinfo.Symbol()== _Symbol&& posinfo.Magic()==InpMagic)
+      if(posinfo.PositionType() == POSITION_TYPE_BUY && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
          BuyTotal++;
-      if(posinfo.PositionType() == POSITION_TYPE_SELL && posinfo.Symbol()== _Symbol&& posinfo.Magic()==InpMagic)
+      if(posinfo.PositionType() == POSITION_TYPE_SELL && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
          SellTotal++;
      }
   }
@@ -302,7 +412,6 @@ double findHigh()
      }
    return -1;
   }
-
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
@@ -323,4 +432,7 @@ double findLow()
      }
    return -1;
   }
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+
 //+------------------------------------------------------------------+
