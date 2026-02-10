@@ -78,14 +78,12 @@ input string KeyNews = "BCB,NFP,JOLTX,Nonfarm,PMI,Retail,GDP,Confidence,Interest
 input string NewsCurrencies = "USD,GBP,EUR,JPY";
 input int DaysNewsLookup = 100;
 input color InpDisabledColor = clrRed;
-bool TrDisableNews = false;
+//bool TrDisableNews = false;
 
 
 ushort sep_code;
 string Newstoavoid[];
-datetime LastNewsAvoided;
-
-
+bool newsprinted = false;
 input group "===Moving Average Filter ==="
 
 input bool MAFilterOn = true;
@@ -145,13 +143,39 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
   {
-//---
+   if(!IsNewbar())
+      return;
+   if(IchiFilterOn)
+      IchiMoku.Refresh(-1);
+   if(MAFilterOn)
+     {
+      MovAvgFast.Refresh(-1);
+      MovAvgSlow.Refresh(-1);
+     }
+   if(ISUpcomingNews())
+      return;
+   CheckforTradeSides();
+   CheckForOpenOrdersandPositions();
+   if(SLT == 0 && (BuyTotal > 0 || SellTotal > 0))
+      TrailSL();
+   ConvertTimes();
+   if(IsInside())
+     {
+      RangeHigh = GetHigh();
+      RangeLow = GetLow();
+      RangeSize = RangeHigh - RangeLow;
+      ShowRange(RangeHigh, RangeLow);
+     }
+   Prepareorder();
+   if(TimeCurrent() > timeclose)
+      CloseandRestAll();
   }
+
 
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-void convertTimes()
+void ConvertTimes()
   {
    TimeToStruct(TimeCurrent(), starttime);
    starttime.hour = RangeStartHour;
@@ -248,6 +272,34 @@ bool IsInside()
 //+------------------------------------------------------------------+
 void OpenTrade(ENUM_ORDER_TYPE type, double price, double sl)
   {
+   if((MAFilterOn == true && MA_BuyOn == true) &&
+      (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
+      (PricevsMovAvg() == "below" || PricevsMovAvg() == "error"))
+     {
+      MA_BuyOn = false;
+      return;
+     }
+   if((MAFilterOn == true && MA_SellOn == true) &&
+      (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
+      (PricevsMovAvg() == "above" || PricevsMovAvg() == "error"))
+     {
+      MA_SellOn = false;
+      return;
+     }
+   if((IchiFilterOn == true && Ichi_BuyOn == true) &&
+      (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
+      (PricevsIchiMoku() == "below" || PricevsIchiMoku() == "error"))
+     {
+      Ichi_BuyOn = false;
+      return;
+     }
+   if((IchiFilterOn == true && Ichi_SellOn == true) &&
+      (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
+      (PricevsIchiMoku() == "above" || PricevsIchiMoku() == "error"))
+     {
+      Ichi_SellOn = false;
+      return;
+     }
    double tp = price + (price - sl) * TPPercent / SLPercent;
    double lots = 0.01;
    switch(LotSizeType)
@@ -286,6 +338,13 @@ void CloseandRestAll()
       BarsRangeStart = 0;
       BuyTotal = 0;
       SellTotal = 0;
+      MA_BuyOn = true;
+      MA_SellOn = true;
+      Ichi_BuyOn = true;
+      Ichi_SellOn = true;
+      
+      newsprinted = false;
+      ChartSetInteger(0,CHART_COLOR_BACKGROUND,clrBlack);
      }
   }
 //+------------------------------------------------------------------+
@@ -302,8 +361,8 @@ void Prepareorder()
       if(RangeSize > MinRangeSize * 10 * _Point && RangeSize < MaxRangeSize * 10 * _Point)
         {
          if(ask < RangeHigh - (RangeSize * OrdDistpct / 100) && ask > RangeLow + (RangeSize * OrdDistpct / 100));
-        {
-         if(TradingStyle == 0)
+           {
+            if(TradingStyle == 0)
               {
                if(BuyTotal <= 0 && MA_BuyOn == true && Ichi_BuyOn == true)
                  {
@@ -432,6 +491,284 @@ double findLow()
      }
    return -1;
   }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void TrailSL()
+  {
+   for(int i = PositionsTotal() - 1 ; i >= 0; i--)
+     {
+      posinfo.SelectByIndex(i);
+      long magic = posinfo.Magic();
+      ulong ticket = posinfo.Ticket();
+      ENUM_POSITION_TYPE postype = posinfo.PositionType();
+      string symbol = posinfo.Symbol();
+      if(symbol == _Symbol && InpMagic == magic)
+        {
+         double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         double tp = posinfo.TakeProfit();
+         double sl = posinfo.StopLoss();
+         double openPrice = posinfo.PriceOpen();
+         double high = findHigh();
+         double low = findLow();
+         if(TrailType == 0)
+           {
+            if(postype == POSITION_TYPE_BUY)
+              {
+               if(price > posinfo.PriceOpen()  && price - RangeSize > sl)
+                 {
+                  sl = price - RangeSize * TrailRangePct / 100;
+                  trade.PositionModify(ticket, sl, tp);
+                 }
+              }
+            else
+               if(postype == POSITION_TYPE_SELL)
+                 {
+                  if(price < posinfo.PriceOpen() && price + RangeSize < sl)
+                    {
+                     sl = price + RangeSize * TrailRangePct / 100;
+                     trade.PositionModify(ticket, sl, tp);
+                    }
+                 }
+           }
+         if(TrailType == 1)
+           {
+            if(postype == POSITION_TYPE_BUY)
+              {
+               if(price > posinfo.PriceOpen() && low > 0)
+                 {
+                  sl = low - HighLowBuffer * 10 * _Point;
+                  if(sl > posinfo.StopLoss())
+                    {
+                     trade.PositionModify(ticket, sl, tp);
+                    }
+                 }
+              }
+            else
+               if(postype == POSITION_TYPE_SELL)
+                 {
+                  if(price < posinfo.PriceOpen() && high > 0)
+                    {
+                     sl = high + HighLowBuffer * 10 * _Point;
+                     if(sl < posinfo.StopLoss())
+                       {
+                        trade.PositionModify(ticket, sl, tp);
+                       }
+                    }
+                 }
+           }
+         //+------------------------------------------------------------------+
+         //|                                                                  |
+         //+------------------------------------------------------------------+
+         if(TrailType == 2)
+           {
+            if(postype == POSITION_TYPE_BUY)
+              {
+               if(price > posinfo.PriceOpen())
+                 {
+                  sl = price - TrailFiexdpips * 10 * _Point;
+                  if(sl > posinfo.StopLoss())
+                    {
+                     trade.PositionModify(ticket, sl, tp);
+                    }
+                 }
+              }
+            else
+               if(postype == POSITION_TYPE_SELL)
+                 {
+                  if(price < posinfo.PriceOpen())
+                    {
+                     sl = price + TrailFiexdpips * 10 * _Point;
+                     if(sl < posinfo.StopLoss())
+                       {
+                        trade.PositionModify(ticket, sl, tp);
+                       }
+                    }
+                 }
+           }
+        }
+     }
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void CheckforTradeSides()
+  {
+   if(TradingSides == 1)
+      return;
+   int openPos = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      posinfo.SelectByIndex(i);
+      if(posinfo.PositionType() == POSITION_TYPE_BUY && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+         openPos++;
+      if(posinfo.PositionType() == POSITION_TYPE_SELL && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+         openPos++;
+     }
+   if(PositionsTotal() > 0 && openPos > 0)
+     {
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+        {
+         ordinfo.SelectByIndex(i);
+         ulong ticket = ordinfo.Ticket();
+         if(ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+           {
+            trade.OrderDelete(ticket);
+           }
+        }
+     }
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool ISUpcomingNews()
+  {
+   if(NewsFilterOn == false)
+      return(false);
+//if(TrDisableNews && TimeCurrent() - LastNewsAvoided < StartTradingMin * PeriodSeconds(PERIOD_M1))
+//   return true;
+//TrDisableNews = false;
+   MqlDateTime Today, NewsTime;
+   string sep;
+   switch(separater)
+     {
+      case 0:
+         sep = ",";
+         break;
+      case 1:
+         sep = ";";
+     }
+   sep_code = StringGetCharacter(sep, 0);
+   int k = StringSplit(KeyNews, sep_code, Newstoavoid);
+   MqlCalendarValue values[];
+   datetime start_time = TimeCurrent();
+   datetime end_time = start_time + PeriodSeconds(PERIOD_D1) * DaysNewsLookup;
+   CalendarValueHistory(values, start_time, end_time, NULL, NULL);
+   for(int i = 0; i < ArraySize(values); i++)
+     {
+      MqlCalendarEvent event;
+      CalendarEventById(values[i].event_id, event);
+      MqlCalendarCountry country;
+      CalendarCountryById(event.country_id, country);
+      if(StringFind(NewsCurrencies, country.currency) < 0)
+         continue;
+      for(int j = 0; j < k; j++)
+        {
+         string currnetevent = Newstoavoid[j];
+         string currnetnews = event.name;
+         if(StringFind(currnetnews, currnetevent) < 0)
+            continue;
+         Comment("Next News: ", country.currency, " : ", event.name, "->", values[i].time);
+         TimeToStruct(TimeCurrent(), Today);
+         TimeToStruct(values[i].time, NewsTime);
+         if(Today.day == NewsTime.day)
+           {
+            ChartSetInteger(0, CHART_COLOR_BACKGROUND, InpDisabledColor);
+            if(!newsprinted)
+               Print("Trading Disabled today on ", _Symbol, "due to upcoming news ", event.name);
+            newsprinted = true;
+            return true;
+           }
+         return false;
+        }
+     }
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+string PricevsMovAvg()
+  {
+   double FastMAnow = MovAvgFast.Main(0);
+   double SlowMAnow = MovAvgSlow.Main(0);
+   if(FastMAnow > SlowMAnow)
+      return "above";
+   if(FastMAnow < SlowMAnow)
+      return "below";
+   return "error";
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+string PricevsIchiMoku()
+  {
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double SenA = IchiMoku.SenkouSpanA(0);
+     double SenB = IchiMoku.SenkouSpanB(0);
+       double Ten = IchiMoku.TenkanSen(0);
+         double Kij = IchiMoku.KijunSen(0);
+   if(IchiFilterType == 0)
+     {
+      if(ask > SenA && ask > SenB)
+         return "above";
+      if(ask < SenA && ask < SenB)
+         return "below";
+     }
+   if(IchiFilterType == 1)
+     {
+      if(ask > Ten)
+         return "above";
+      if(ask < Ten)
+         return "below";
+     }
+   if(IchiFilterType == 2)
+     {
+      if(ask > Kij)
+         return "above";
+      if(ask < Kij)
+         return "below";
+     }
+   if(IchiFilterType == 3)
+     {
+      if(ask > SenA)
+         return "above";
+      if(ask < SenA)
+         return "below";
+     }
+   if(IchiFilterType == 4)
+     {
+      if(ask > SenB)
+         return "above";
+      if(ask < SenB)
+         return "below";
+     }
+   if(IchiFilterType == 5)
+     {
+      if(Ten > Kij)
+         return "above";
+      if(Ten < Kij)
+         return "below";
+     }
+   if(IchiFilterType == 6)
+     {
+      if(Ten > Kij && Kij > SenA && Kij > SenB)
+         return "above";
+      if(Ten < Kij && Kij < SenA && Kij < SenB)
+         return "below";
+     }
+   if(IchiFilterType == 7)
+     {
+      if(Ten > SenA && Ten > SenB)
+         return "above";
+      if(Ten < SenA && Ten < SenB)
+         return "below";
+     }
+   if(IchiFilterType == 8)
+     {
+      if(Kij > SenA && Kij > SenB)
+         return "above";
+      if(Kij < SenA && Kij < SenB)
+         return "below";
+     }
+   return "InCloud";
+  }
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //+------------------------------------------------------------------+
 //+------------------------------------------------------------------+
 
