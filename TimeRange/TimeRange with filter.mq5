@@ -272,34 +272,34 @@ bool IsInside()
 //+------------------------------------------------------------------+
 void OpenTrade(ENUM_ORDER_TYPE type, double price, double sl)
   {
-   if((MAFilterOn == true && MA_BuyOn == true) &&
-      (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
-      (PricevsMovAvg() == "below" || PricevsMovAvg() == "error"))
-     {
-      MA_BuyOn = false;
-      return;
-     }
-   if((MAFilterOn == true && MA_SellOn == true) &&
-      (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
-      (PricevsMovAvg() == "above" || PricevsMovAvg() == "error"))
-     {
-      MA_SellOn = false;
-      return;
-     }
-   if((IchiFilterOn == true && Ichi_BuyOn == true) &&
-      (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
-      (PricevsIchiMoku() == "below" || PricevsIchiMoku() == "error"))
-     {
-      Ichi_BuyOn = false;
-      return;
-     }
-   if((IchiFilterOn == true && Ichi_SellOn == true) &&
-      (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
-      (PricevsIchiMoku() == "above" || PricevsIchiMoku() == "error"))
-     {
-      Ichi_SellOn = false;
-      return;
-     }
+//if((MAFilterOn == true && MA_BuyOn == true) &&
+//   (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
+//   (PricevsMovAvg() == "below" || PricevsMovAvg() == "error"))
+//  {
+//   MA_BuyOn = false;
+//   return;
+//  }
+//if((MAFilterOn == true && MA_SellOn == true) &&
+//   (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
+//   (PricevsMovAvg() == "above" || PricevsMovAvg() == "error"))
+//  {
+//   MA_SellOn = false;
+//   return;
+//  }
+//if((IchiFilterOn == true && Ichi_BuyOn == true) &&
+//   (type == ORDER_TYPE_BUY_LIMIT || type == ORDER_TYPE_BUY_STOP) &&
+//   (PricevsIchiMoku() == "below" || PricevsIchiMoku() == "error"))
+//  {
+//   Ichi_BuyOn = false;
+//   return;
+//  }
+//if((IchiFilterOn == true && Ichi_SellOn == true) &&
+//   (type == ORDER_TYPE_SELL_LIMIT || type == ORDER_TYPE_SELL_STOP) &&
+//   (PricevsIchiMoku() == "above" || PricevsIchiMoku() == "error"))
+//  {
+//   Ichi_SellOn = false;
+//   return;
+//  }
    double tp = price + (price - sl) * TPPercent / SLPercent;
    double lots = 0.01;
    switch(LotSizeType)
@@ -315,41 +315,7 @@ void OpenTrade(ENUM_ORDER_TYPE type, double price, double sl)
       printf("Open Failed for %s, %s, price = %f, tp =%f", _Symbol, EnumToString(type), price, sl, tp);
      }
   }
-//+------------------------------------------------------------------+
-//|                                                                  |
-//+------------------------------------------------------------------+
-void CloseandRestAll()
-  {
-   for(int i = PositionsTotal() - 1; i >= 0; i--)
-     {
-      ulong ticket = PositionGetTicket(i);
-      if(posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
-        {
-         trade.PositionClose(ticket);
-        }
-     }
-   for(int i = OrdersTotal() - 1; i >= 0; i--)
-     {
-      ulong ticket = OrderGetTicket(i);
-      if(ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
-        {
-         trade.OrderDelete(ticket);
-        }
-      BarsRangeStart = 0;
-      BuyTotal = 0;
-      SellTotal = 0;
-      MA_BuyOn = true;
-      MA_SellOn = true;
-      Ichi_BuyOn = true;
-      Ichi_SellOn = true;
-      
-      newsprinted = false;
-      ChartSetInteger(0,CHART_COLOR_BACKGROUND,clrBlack);
-     }
-  }
-//+------------------------------------------------------------------+
-//|                                                                  |
-//+------------------------------------------------------------------+
+
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
@@ -360,7 +326,7 @@ void Prepareorder()
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       if(RangeSize > MinRangeSize * 10 * _Point && RangeSize < MaxRangeSize * 10 * _Point)
         {
-         if(ask < RangeHigh - (RangeSize * OrdDistpct / 100) && ask > RangeLow + (RangeSize * OrdDistpct / 100));
+         if(ask < RangeHigh - (RangeSize * OrdDistpct / 100) && ask > RangeLow + (RangeSize * OrdDistpct / 100))
            {
             if(TradingStyle == 0)
               {
@@ -388,71 +354,9 @@ void Prepareorder()
         }
      }
   }
+
 //+------------------------------------------------------------------+
 //|                                                                  |
-//+------------------------------------------------------------------+
-double calcLots(double slPoints)
-  {
-   double risk = AccountInfoDouble(ACCOUNT_BALANCE) * RiskPercent / 100;
-   double ticksize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   double tickvalue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double lotstep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-   double moneyPerLotstep = slPoints / ticksize * tickvalue * lotstep;
-   double lots = MathFloor(risk / moneyPerLotstep) * lotstep;
-   double minVolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
-   double maxvolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX);
-   double volumelimit = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_LIMIT);
-   if(volumelimit != 0)
-      lots = MathMin(lots, volumelimit);
-   if(maxvolume != 0)
-     {
-      lots = MathMin(lots, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX));
-     }
-   if(minVolume != 0)
-     {
-      lots = MathMax(lots, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN));
-     }
-   lots = NormalizeDouble(lots, 2);
-   return lots;
-  }
-//+------------------------------------------------------------------+
-bool IsNewbar()
-  {
-   static datetime previousTime = 0;
-   datetime currentTime  = iTime(_Symbol, Timeframe, 0);
-   if(previousTime != currentTime)
-     {
-      previousTime = currentTime;
-      return true;
-     }
-   return false;
-  }
-//+------------------------------------------------------------------+
-//|                                                                  |
-//+------------------------------------------------------------------+
-void CheckForOpenOrdersandPositions()
-  {
-   for(int i = OrdersTotal() - 1; i >= 0; i--)
-     {
-      ordinfo.SelectByIndex(i);
-      if(ordinfo.OrderType() == ORDER_TYPE_BUY_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
-         BuyTotal++;
-      if(ordinfo.OrderType() == ORDER_TYPE_SELL_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
-         SellTotal++;
-      if(ordinfo.OrderType() == ORDER_TYPE_BUY_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
-         BuyTotal++;
-      if(ordinfo.OrderType() == ORDER_TYPE_SELL_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
-         SellTotal++;
-     }
-   for(int i = PositionsTotal() - 1; i >= 0; i--)
-     {
-      posinfo.SelectByIndex(i);
-      if(posinfo.PositionType() == POSITION_TYPE_BUY && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
-         BuyTotal++;
-      if(posinfo.PositionType() == POSITION_TYPE_SELL && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
-         SellTotal++;
-     }
-  }
 //+------------------------------------------------------------------+
 double findHigh()
   {
@@ -490,6 +394,104 @@ double findLow()
       lowestLow = MathMin(low, lowestLow);
      }
    return -1;
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+double calcLots(double slPoints)
+  {
+   double risk = AccountInfoDouble(ACCOUNT_BALANCE) * RiskPercent / 100;
+   double ticksize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   double tickvalue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double lotstep = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   double moneyPerLotstep = slPoints / ticksize * tickvalue * lotstep;
+   double lots = MathFloor(risk / moneyPerLotstep) * lotstep;
+   double minVolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MIN);
+   double maxvolume = SymbolInfoDouble(Symbol(), SYMBOL_VOLUME_MAX);
+   double volumelimit = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_LIMIT);
+   if(volumelimit != 0)
+      lots = MathMin(lots, volumelimit);
+   if(maxvolume != 0)
+     {
+      lots = MathMin(lots, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX));
+     }
+   if(minVolume != 0)
+     {
+      lots = MathMax(lots, SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN));
+     }
+   lots = NormalizeDouble(lots, 2);
+   return lots;
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void CheckForOpenOrdersandPositions()
+  {
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+     {
+      ordinfo.SelectByIndex(i);
+      if(ordinfo.OrderType() == ORDER_TYPE_BUY_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+         BuyTotal++;
+      if(ordinfo.OrderType() == ORDER_TYPE_SELL_STOP && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+         SellTotal++;
+      if(ordinfo.OrderType() == ORDER_TYPE_BUY_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+         BuyTotal++;
+      if(ordinfo.OrderType() == ORDER_TYPE_SELL_LIMIT && ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+         SellTotal++;
+     }
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      posinfo.SelectByIndex(i);
+      if(posinfo.PositionType() == POSITION_TYPE_BUY && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+         BuyTotal++;
+      if(posinfo.PositionType() == POSITION_TYPE_SELL && posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+         SellTotal++;
+     }
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsNewbar()
+  {
+   static datetime previousTime = 0;
+   datetime currentTime  = iTime(_Symbol, Timeframe, 0);
+   if(previousTime != currentTime)
+     {
+      previousTime = currentTime;
+      return true;
+     }
+   return false;
+  }
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void CloseandRestAll()
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(posinfo.Symbol() == _Symbol && posinfo.Magic() == InpMagic)
+        {
+         trade.PositionClose(ticket);
+        }
+     }
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = OrderGetTicket(i);
+      if(ordinfo.Symbol() == _Symbol && ordinfo.Magic() == InpMagic)
+        {
+         trade.OrderDelete(ticket);
+        }
+     }
+   BarsRangeStart = 0;
+   BuyTotal = 0;
+   SellTotal = 0;
+   MA_BuyOn = true;
+   MA_SellOn = true;
+   Ichi_BuyOn = true;
+   Ichi_SellOn = true;
+   newsprinted = false;
+   ChartSetInteger(0, CHART_COLOR_BACKGROUND, clrBlack);
   }
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -696,9 +698,9 @@ string PricevsIchiMoku()
   {
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double SenA = IchiMoku.SenkouSpanA(0);
-     double SenB = IchiMoku.SenkouSpanB(0);
-       double Ten = IchiMoku.TenkanSen(0);
-         double Kij = IchiMoku.KijunSen(0);
+   double SenB = IchiMoku.SenkouSpanB(0);
+   double Ten = IchiMoku.TenkanSen(0);
+   double Kij = IchiMoku.KijunSen(0);
    if(IchiFilterType == 0)
      {
       if(ask > SenA && ask > SenB)
@@ -764,12 +766,4 @@ string PricevsIchiMoku()
      }
    return "InCloud";
   }
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
 
-//+------------------------------------------------------------------+
