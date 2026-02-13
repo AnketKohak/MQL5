@@ -3,6 +3,10 @@
 //|                                  Copyright 2025, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
+
+// Youtube video link : https://www.youtube.com/watch?v=M8Z6czLQYns&t=3123s
+// this is good to use in 15m timeframe
+
 #property copyright "Copyright 2025, MetaQuotes Ltd."
 #property link      "https://www.mql5.com"
 #property version   "1.00"
@@ -766,4 +770,5 @@ string PricevsIchiMoku()
      }
    return "InCloud";
   }
+
 
