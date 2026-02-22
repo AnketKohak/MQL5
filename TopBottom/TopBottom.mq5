@@ -8,7 +8,7 @@
 CTrade trade;
 CPositionInfo posinfo;
 COrderInfo ordinfo;
-
+input ENUM_TIMEFRAMES Timeframe = PERIOD_CURRENT;
 input double lots = 0.01;                     // Lot size for trading
 input bool CompoundingInterestswitch = false; // Risk in basis points instead of fixed lots?
 input int Risk = 40;
@@ -32,7 +32,7 @@ double accountBalanceDivisor = 1000000;
 int maxSlippage = 30;
 bool tradingAllowed = true;
 
-int wprThreshold = 5;
+int wprThreshold = 20 ;
 int handleBollinger;
 int handleWPR;
 
@@ -127,8 +127,8 @@ int OnInit()
         }
      }
    TesterHideIndicators(false);
-   handleBollinger = iBands(_Symbol, PERIOD_M1, 20, 0, 2.0, PRICE_CLOSE);
-   handleWPR = iWPR(_Symbol, PERIOD_M1, Volatilitythreshold);
+   handleBollinger = iBands(_Symbol, Timeframe, 20, 0, 2.0, PRICE_CLOSE);
+   handleWPR = iWPR(_Symbol, Timeframe, Volatilitythreshold);
    if(DisplaySwitch)
      {
       CreateDisplayPanel();
@@ -163,7 +163,7 @@ void OnTick()
      {
       tradingAllowed = false;
      }
-   lastBarTime = iTime(_Symbol, PERIOD_M1, 1);
+   lastBarTime = iTime(_Symbol, Timeframe, 1);
    if(CompoundingInterestswitch)
      {
       calculatedLotSize = AccountInfoDouble(ACCOUNT_EQUITY) * Risk / accountBalanceDivisor;
@@ -372,8 +372,8 @@ int UpdatePositions()
 void CreateDisplayPanel()
   {
    int panelX = 10;
-   int panelY = 20;
-   int panelWidth = 150;
+   int panelY = 40;
+   int panelWidth = 250;
    int panelHeight = 60;
    int spacing = 5;
    string fontName = "Arial";
@@ -408,6 +408,20 @@ void CreateDisplayPanel()
    ObjectSetInteger(0, "ProfitPanel", OBJPROP_XSIZE, panelWidth);
    ObjectSetInteger(0, "ProfitPanel", OBJPROP_YSIZE, panelHeight);
    ObjectSetInteger(0, "ProfitPanel", OBJPROP_BGCOLOR, 0x575757);
+   ObjectCreate(0, "BuyProfitLabel", OBJ_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_XDISTANCE, panelX + 10);
+   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_YDISTANCE, panelY + 30);
+   ObjectSetString(0, "BuyProfitLabel", OBJPROP_TEXT, "Buy P/L: ");
+   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_COLOR, clrDeepSkyBlue);
+   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_FONTSIZE, fontSize);
+//Buy profit - right label
+   ObjectCreate(0, "BuyProfitValueLabel", OBJ_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_XDISTANCE, panelX + panelWidth - 10);
+   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_YDISTANCE, panelY + 40);
+   ObjectSetString(0, "BuyProfitValueLabel", OBJPROP_TEXT, "0.00");
+   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_COLOR, clrLime);
+   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_FONTSIZE, fontSize);
+   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_ANCHOR, ANCHOR_RIGHT);
 // sell profit -Left label
    ObjectCreate(0, "SellProfitLabel", OBJ_LABEL, 0, 0, 0);
    ObjectSetInteger(0, "SellProfitLabel", OBJPROP_XDISTANCE, panelX + 10);
@@ -424,20 +438,7 @@ void CreateDisplayPanel()
    ObjectSetInteger(0, "SellProfitValueLabel", OBJPROP_FONTSIZE, fontSize);
    ObjectSetInteger(0, "SellProfitValueLabel", OBJPROP_ANCHOR, ANCHOR_RIGHT);
 // Buy profit -Left label
-   ObjectCreate(0, "BuyProfitLabel", OBJ_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_XDISTANCE, panelX + 10);
-   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_YDISTANCE, panelY + 30);
-   ObjectSetString(0, "BuyProfitLabel", OBJPROP_TEXT, "Buy P/L: ");
-   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_COLOR, clrDeepSkyBlue);
-   ObjectSetInteger(0, "BuyProfitLabel", OBJPROP_FONTSIZE, fontSize);
-//Buy profit - right label
-   ObjectCreate(0, "BuyProfitValueLabel", OBJ_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_XDISTANCE, panelX + panelWidth - 10);
-   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_YDISTANCE, panelY + 40);
-   ObjectSetString(0, "BuyProfitValueLabel", OBJPROP_TEXT, "0.00");
-   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_COLOR, clrLime);
-   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_FONTSIZE, fontSize);
-   ObjectSetInteger(0, "BuyProfitValueLabel", OBJPROP_ANCHOR, ANCHOR_RIGHT);
+   
 //Spread Label
    panelX += panelWidth + spacing ;
    ObjectCreate(0, "SpreadPanel", OBJ_RECTANGLE_LABEL, 0, 0, 0);
@@ -467,8 +468,8 @@ void CreateDisplayPanel()
 //+------------------------------------------------------------------+
 void UpdatePanelData()
   {
-   double totalBuylots = 0.0;
-   double totalSelllots = 0.0;
+   double totalBuylots = 0.00;
+   double totalSelllots = 0.00;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       posinfo.SelectByIndex(i);
@@ -485,10 +486,10 @@ void UpdatePanelData()
               }
         }
      }
-   ObjectSetString(0, "BuyProfitValueLabel", OBJPROP_TEXT, DoubleToString(totalBuylots, 2));
-   ObjectSetString(0, "SellProfitValueLabel", OBJPROP_TEXT, DoubleToString(totalSelllots, 2));
-   UpdateProfitDisplay("SellProffitValue", totalSellProfit);
-   UpdateProfitDisplay("BuyProffitValue", totalBuyProfit);
+   ObjectSetString(0, "BuyLotsLabel", OBJPROP_TEXT,"Buy Lots : "+ DoubleToString(totalBuylots, 2));
+   ObjectSetString(0, "SellLotsLabel", OBJPROP_TEXT,"Sell Lots : "+ DoubleToString(totalSelllots, 2));
+   UpdateProfitDisplay("SellProfitValueLabel", totalSellProfit);
+   UpdateProfitDisplay("BuyProfitValueLabel", totalBuyProfit);
    ObjectSetString(0, "SpreadValueLabel", OBJPROP_TEXT, (string)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD));
   }
 
