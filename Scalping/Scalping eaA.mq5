@@ -19,7 +19,7 @@ input ENUM_TIMEFRAMES Timeframe = PERIOD_CURRENT;
 input int Tppoints = 200;
 input int Slpoints = 200;
 input int TslPoints = 10;
-input int TslTrigferPoints = 15;
+input int TslTriggerPoints = 15;
 
 input int BarsN = 5;
 input int OrderDistPoints = 100;
